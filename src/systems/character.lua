@@ -1,4 +1,7 @@
-Character = {}
+local Dice = require("src.systems.dice")
+local Constants = require("src.utils.constants")
+
+local Character = {}
 Character.__index = Character
 
 function Character.new(name, isPlayer)
@@ -27,20 +30,21 @@ function Character:generatePlayerStats()
     self.wisdom = Dice.rollAbilityScore()
     self.charisma = Dice.rollAbilityScore()
     
-    self.proficiencyBonus = 2
-    self.hitDie = 8
+    self.proficiencyBonus = Constants.CHARACTER.PROFICIENCY_BONUS_LEVEL_1
+    self.hitDie = Constants.CHARACTER.HIT_DIE_PLAYER
 end
 
 function Character:generateEnemyStats()
-    self.strength = 12
-    self.dexterity = 14
-    self.constitution = 12
-    self.intelligence = 8
-    self.wisdom = 10
-    self.charisma = 8
+    local stats = Constants.ENEMY_STATS.GOBLIN
+    self.strength = stats.strength
+    self.dexterity = stats.dexterity
+    self.constitution = stats.constitution
+    self.intelligence = stats.intelligence
+    self.wisdom = stats.wisdom
+    self.charisma = stats.charisma
     
-    self.proficiencyBonus = 2
-    self.hitDie = 6
+    self.proficiencyBonus = Constants.CHARACTER.PROFICIENCY_BONUS_LEVEL_1
+    self.hitDie = Constants.CHARACTER.HIT_DIE_ENEMY
 end
 
 function Character:calculateDerivedStats()
@@ -54,9 +58,9 @@ function Character:calculateDerivedStats()
     self.maxHP = self.hitDie + self.conMod
     self.currentHP = self.maxHP
     
-    self.armorClass = 10 + self.dexMod
+    self.armorClass = Constants.CHARACTER.BASE_AC + self.dexMod
     if not self.isPlayer then
-        self.armorClass = self.armorClass + 2
+        self.armorClass = self.armorClass + Constants.ENEMY_STATS.GOBLIN.ac_bonus
     end
     
     self.initiative = self.dexMod
@@ -65,17 +69,9 @@ function Character:calculateDerivedStats()
     self.damageBonus = self.isPlayer and self.strMod or self.dexMod
     
     if self.isPlayer then
-        self.weapon = {
-            name = "Longsword",
-            damage = {[8] = 1},
-            type = "slashing"
-        }
+        self.weapon = Constants.WEAPONS.PLAYER
     else
-        self.weapon = {
-            name = "Scimitar",
-            damage = {[6] = 1},
-            type = "slashing"
-        }
+        self.weapon = Constants.WEAPONS.ENEMY
     end
 end
 
@@ -108,7 +104,8 @@ function Character:isAlive()
 end
 
 function Character:defend()
-    return string.format("%s takes a defensive stance (+2 AC until next turn)", self.name)
+    return string.format("%s takes a defensive stance (+%d AC until next turn)", 
+        self.name, Constants.COMBAT.DEFEND_AC_BONUS)
 end
 
 function Character:getStatusString()

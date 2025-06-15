@@ -1,32 +1,41 @@
-local GameState = {
-    MENU = "menu",
-    COMBAT = "combat",
-    CHARACTER_CREATION = "character_creation"
-}
+local GameState = require("src.core.gamestate")
+local Input = require("src.core.input")
+local Menu = require("src.ui.menu")
+local CombatUI = require("src.ui.combat_ui")
+local Character = require("src.systems.character")
+local Constants = require("src.utils.constants")
+local Logger = require("src.utils.logger")
 
 local game = {
-    state = GameState.MENU,
-    font = nil,
     player = nil,
     enemy = nil,
     combatLog = {},
-    currentTurn = "player"
+    currentTurn = "player",
+    font = nil
 }
 
 function love.load()
-    love.window.setTitle("D&D Combat System")
-    game.font = love.graphics.newFont(16)
+    love.window.setTitle(Constants.GAME.TITLE)
+    game.font = love.graphics.newFont(Constants.UI.FONT_SIZE)
     love.graphics.setFont(game.font)
     
-    require("dice")
-    require("character")
-    require("combat")
+    Logger.info("Game started - %s v%s", Constants.GAME.TITLE, Constants.GAME.VERSION)
     
     game.player = Character.new("Hero", true)
     game.enemy = Character.new("Goblin", false)
     
-    addToLog("Welcome to D&D Combat!")
-    addToLog("Press SPACE to start combat, R to roll a test die")
+    Input.registerHandler(GameState.states.MENU, function(key)
+        Menu.handleInput(key, game)
+    end)
+    
+    Input.registerHandler(GameState.states.COMBAT, function(key)
+        CombatUI.handleInput(key, game)
+    end)
+    
+    game.addToLog("Welcome to D&D Combat!")
+    game.addToLog("Press SPACE to start combat, R to roll a test die")
+    
+    Logger.info("Game initialization complete")
 end
 
 function love.update(dt)
@@ -34,62 +43,25 @@ function love.update(dt)
 end
 
 function love.draw()
-    love.graphics.clear(0.1, 0.1, 0.2, 1)
+    love.graphics.clear(Constants.UI.COLORS.BACKGROUND)
     
-    if game.state == GameState.MENU then
-        drawMenu()
-    elseif game.state == GameState.COMBAT then
-        drawCombat()
+    if GameState.isState(GameState.states.MENU) then
+        Menu.draw(game)
+    elseif GameState.isState(GameState.states.COMBAT) then
+        CombatUI.draw(game)
     end
 end
 
 function love.keypressed(key)
-    if game.state == GameState.MENU then
-        if key == "space" then
-            game.state = GameState.COMBAT
-            Combat.startCombat(game.player, game.enemy)
-        elseif key == "r" then
-            local roll = Dice.roll(20)
-            addToLog("Test d20 roll: " .. roll)
-        end
-    elseif game.state == GameState.COMBAT then
-        Combat.handleInput(key)
-    end
+    Logger.debug("Key pressed: %s in state: %s", key, GameState.getCurrentState())
+    Input.handleKeyPressed(key, GameState.getCurrentState())
 end
 
-function drawMenu()
-    love.graphics.print("D&D Combat System", 50, 50)
-    love.graphics.print("Press SPACE to start combat", 50, 100)
-    love.graphics.print("Press R to test dice rolling", 50, 120)
-    
-    love.graphics.print("Combat Log:", 50, 180)
-    for i, log in ipairs(game.combatLog) do
-        love.graphics.print(log, 50, 200 + (i - 1) * 20)
-    end
-end
-
-function drawCombat()
-    love.graphics.print("=== COMBAT ===", 50, 20)
-    
-    love.graphics.print("Player:", 50, 60)
-    love.graphics.print(game.player:getStatusString(), 50, 80)
-    
-    love.graphics.print("Enemy:", 50, 140)
-    love.graphics.print(game.enemy:getStatusString(), 50, 160)
-    
-    love.graphics.print("Turn: " .. game.currentTurn, 50, 200)
-    love.graphics.print("A - Attack, D - Defend, ESC - Back to menu", 50, 220)
-    
-    love.graphics.print("Combat Log:", 50, 260)
-    local startIndex = math.max(1, #game.combatLog - 8)
-    for i = startIndex, #game.combatLog do
-        love.graphics.print(game.combatLog[i], 50, 280 + (i - startIndex) * 18)
-    end
-end
-
-function addToLog(message)
+function game.addToLog(message)
     table.insert(game.combatLog, message)
-    if #game.combatLog > 20 then
+    Logger.info("Combat Log: %s", message)
+    
+    if #game.combatLog > Constants.GAME.COMBAT_LOG_MAX_LINES then
         table.remove(game.combatLog, 1)
     end
 end
